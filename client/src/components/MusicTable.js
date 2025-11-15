@@ -313,7 +313,7 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
       }
     } else if (action === 'copy') {
       try {
-        const response = await fetch('http://localhost:5001/api/copy-track', {
+        const response = await fetch('/api/copy-track', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -354,7 +354,7 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
   const copyTrack = async (sourceScene, track) => {
     if (mode !== 'edit') return;
     try {
-      const response = await fetch('http://localhost:5001/api/copy-track', {
+      const response = await fetch('/api/copy-track', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -378,12 +378,12 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
     }
   };
 
-  const createTag = async (scene) => {
+   const createTag = async (scene) => {
     if (mode !== 'edit') return;
     if (!newTagName.trim()) return;
 
     try {
-      const response = await fetch('http://localhost:5001/api/create-tag', {
+      const response = await fetch('/api/create-tag', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -440,7 +440,7 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
         }
       }
       
-      const response = await fetch('http://localhost:5001/api/rename-track', {
+      const response = await fetch('/api/rename-track', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -742,7 +742,7 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
     // Only make the API call if the name actually changed
     if (newTrackName !== trackName) {
       try {
-        const response = await fetch('http://localhost:5001/api/rename-track', {
+        const response = await fetch('/api/rename-track', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -775,7 +775,7 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
         console.error('Error saving markers to track:', error);
       }
     }
-  };
+ };
   
   // Function to update track name based on current markers
  const updateTrackNameWithMarkers = (trackName, sceneName) => {
@@ -893,7 +893,7 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
               // Only make the API call if the name actually changed
               if (newTrackName !== track.name) {
                 try {
-                  const response = await fetch('http://localhost:5001/api/rename-track', {
+                  const response = await fetch('/api/rename-track', {
                     method: 'PUT',
                     headers: {
                       'Content-Type': 'application/json',

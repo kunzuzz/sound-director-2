@@ -1,125 +1,57 @@
-const express = require('express');
-const cors = require('cors');
-const fs = require('fs-extra');
-const path = require('path');
-const multer = require('multer');
+import fs from 'fs-extra';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const app = express();
-const PORT = process.env.PORT || 5001;
+// For Vercel environment compatibility
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-// Enhanced static file serving for music folder with proper content-type handling
-app.use('/music', (req, res, next) => {
-  // Decode the URL to handle special characters in file paths
-  req.url = decodeURIComponent(req.url);
-  express.static('music', {
-    setHeaders: (res, filePath) => {
-      // Enhanced content-type detection for various audio formats
-      const ext = path.extname(filePath).toLowerCase();
-      const contentTypeMap = {
-        '.mp3': 'audio/mpeg',
-        '.wav': 'audio/wav',
-        '.m4a': 'audio/mp4',
-        '.m4b': 'audio/mp4',
-        '.aac': 'audio/aac',
-        '.flac': 'audio/flac',
-        '.ogg': 'audio/ogg',
-        '.opus': 'audio/opus',
-        '.wma': 'audio/x-ms-wma',
-        '.aiff': 'audio/x-aiff',
-        '.aif': 'audio/x-aiff',
-        '.mid': 'audio/midi',
-        '.midi': 'audio/midi'
-      };
-      
-      const contentType = contentTypeMap[ext] || 'application/octet-stream';
-      res.setHeader('Content-Type', contentType);
-    }
-  })(req, res, next);
-});
+// Root handler that will delegate to specific handlers based on the request
+export default async function handler(req, res) {
+  // Enable CORS for all requests
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
 
-// Multer setup for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const scenePath = req.body.scenePath;
-    cb(null, scenePath);
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.originalname);
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
   }
-});
-const upload = multer({ storage });
 
-// Create base music directory structure if it doesn't exist
-const musicDir = path.join(__dirname, 'music');
-const baseDir = path.join(musicDir, 'base');
+  const { pathname } = req;
 
-if (!fs.existsSync(musicDir)) {
-  fs.mkdirSync(musicDir);
+  // Route to different handlers based on the pathname
+ if (pathname === '/api/versions' && req.method === 'GET') {
+    return getVersions(req, res);
+  } else if (pathname === '/api/versions' && req.method === 'POST') {
+    return createVersion(req, res);
+  } else if (pathname.match(/^\/api\/versions\/.*\/scenes$/) && req.method === 'GET') {
+    return getScenesForVersion(req, res);
+  } else if (pathname === '/api/move-track' && req.method === 'PUT') {
+    return moveTrack(req, res);
+  } else if (pathname === '/api/copy-track' && req.method === 'POST') {
+    return copyTrack(req, res);
+  } else if (pathname === '/api/create-tag' && req.method === 'POST') {
+    return createTag(req, res);
+  } else if (pathname === '/api/rename-track' && req.method === 'PUT') {
+    return renameTrack(req, res);
+  } else if (pathname === '/api/reorder-tracks' && req.method === 'PUT') {
+    return reorderTracks(req, res);
+  } else if (pathname === '/api/select-track' && req.method === 'PUT') {
+    return selectTrack(req, res);
+  }
+
+  // If no route matches
+  res.status(404).json({ error: 'Route not found' });
 }
 
-if (!fs.existsSync(baseDir)) {
-  fs.mkdirSync(baseDir);
-}
-
-// Get all versions
-app.get('/api/versions', (req, res) => {
-  try {
-    const dirs = fs.readdirSync(musicDir);
-    const versions = dirs.filter(dir => dir.startsWith('ver'));
-    res.json(versions);
-  } catch (error) {
-    console.error('Error getting versions:', error);
-    res.status(500).json({ error: 'Failed to get versions' });
-  }
-});
-
-// Get scenes for a specific version
-app.get('/api/versions/:version/scenes', (req, res) => {
-  try {
-    const version = req.params.version;
-    const versionPath = path.join(musicDir, version);
-    
-    if (!fs.existsSync(versionPath)) {
-      return res.status(404).json({ error: 'Version not found' });
-    }
-    
-    const scenes = fs.readdirSync(versionPath).filter(item => {
-      const itemPath = path.join(versionPath, item);
-      return fs.statSync(itemPath).isDirectory();
-    });
-    
-    // Natural sort for scenes (e.g., Scene 1, Scene 2, ..., Scene 10, Scene 11)
-    const sortedScenes = scenes.sort((a, b) => {
-      // Try to compare as numbers first if they are pure numbers
-      const numA = parseInt(a);
-      const numB = parseInt(b);
-      
-      if (!isNaN(numA) && !isNaN(numB)) {
-        return numA - numB;
-      }
-      
-      // For complex names like "Scene 1", "Scene 10", use localeCompare with numeric option
-      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-    });
-    
-    const scenesData = sortedScenes.map(scene => {
-      const scenePath = path.join(versionPath, scene);
-      const tracks = getTracksForScene(scenePath);
-      return {
-        name: scene,
-        tracks
-      };
-    });
-    
-    res.json(scenesData);
-  } catch (error) {
-    console.error('Error getting scenes:', error);
-    res.status(500).json({ error: 'Failed to get scenes' });
-  }
-});
+// Helper function to get the music directory path
+const getMusicDir = () => {
+  // In Vercel environment, we need to handle file paths differently
+  // For now, we'll use a relative path
+  return path.join(process.cwd(), 'music');
+};
 
 // Helper function to get tracks for a scene
 function getTracksForScene(scenePath) {
@@ -156,7 +88,7 @@ function getTracksForScene(scenePath) {
   }
   
   // Sort tracks: first by tag (grouped), then by name
-  tracks.sort((a, b) => {
+ tracks.sort((a, b) => {
     if (a.isTag && !b.isTag) return 1;
     if (!a.isTag && b.isTag) return -1;
     if (a.isTag && b.isTag) {
@@ -170,11 +102,74 @@ function getTracksForScene(scenePath) {
   return tracks;
 }
 
-// Save a new version by copying current version or base
-app.post('/api/versions', (req, res) => {
+// Get all versions
+async function getVersions(req, res) {
   try {
-    const { fromVersion = 'base' } = req.body;
-    const versions = fs.readdirSync(musicDir).filter(dir => dir.startsWith('ver'));
+    const musicDir = getMusicDir();
+    const dirs = fs.readdirSync(musicDir);
+    const versions = dirs.filter(dir => dir.startsWith('ver'));
+    res.status(200).json(versions);
+  } catch (error) {
+    console.error('Error getting versions:', error);
+    res.status(500).json({ error: 'Failed to get versions' });
+  }
+}
+
+// Get scenes for a specific version
+async function getScenesForVersion(req, res) {
+  try {
+    // Extract version from the URL
+    const version = req.url.split('/')[3]; // /api/versions/:version/scenes
+    const musicDir = getMusicDir();
+    const versionPath = path.join(musicDir, version);
+    
+    if (!fs.existsSync(versionPath)) {
+      return res.status(404).json({ error: 'Version not found' });
+    }
+    
+    const scenes = fs.readdirSync(versionPath).filter(item => {
+      const itemPath = path.join(versionPath, item);
+      return fs.statSync(itemPath).isDirectory();
+    });
+    
+    // Natural sort for scenes (e.g., Scene 1, Scene 2, ..., Scene 10, Scene 11)
+    const sortedScenes = scenes.sort((a, b) => {
+      // Try to compare as numbers first if they are pure numbers
+      const numA = parseInt(a);
+      const numB = parseInt(b);
+      
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
+      }
+      
+      // For complex names like "Scene 1", "Scene 2", use localeCompare with numeric option
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    
+    const scenesData = sortedScenes.map(scene => {
+      const scenePath = path.join(versionPath, scene);
+      const tracks = getTracksForScene(scenePath);
+      return {
+        name: scene,
+        tracks
+      };
+    });
+    
+    res.status(200).json(scenesData);
+  } catch (error) {
+    console.error('Error getting scenes:', error);
+    res.status(500).json({ error: 'Failed to get scenes' });
+  }
+}
+
+// Save a new version by copying current version or base
+async function createVersion(req, res) {
+  try {
+    const { fromVersion = 'base' } = req.body || {};
+    const musicDir = getMusicDir();
+    
+    const dirs = fs.readdirSync(musicDir);
+    const versions = dirs.filter(dir => dir.startsWith('ver'));
     
     // Get the next version number
     let nextVersion = 'ver1';
@@ -194,22 +189,23 @@ app.post('/api/versions', (req, res) => {
     // Copy the entire directory
     fs.copySync(sourcePath, targetPath);
     
-    res.json({ version: nextVersion });
+    res.status(200).json({ version: nextVersion });
   } catch (error) {
     console.error('Error creating new version:', error);
-    res.status(500).json({ error: 'Failed to create new version' });
+    res.status(50).json({ error: 'Failed to create new version' });
   }
-});
+}
 
 // Move track between scenes
-app.put('/api/move-track', (req, res) => {
+async function moveTrack(req, res) {
   try {
-    const { sourceScene, targetScene, trackName, version, tagName } = req.body;
+    const { sourceScene, targetScene, trackName, version, tagName } = req.body || {};
     
     if (!sourceScene || !targetScene || !trackName || !version) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
     
+    const musicDir = getMusicDir();
     const versionPath = path.join(musicDir, version);
     const sourceScenePath = path.join(versionPath, sourceScene);
     const targetScenePath = path.join(versionPath, targetScene);
@@ -255,22 +251,23 @@ app.put('/api/move-track', (req, res) => {
       }
     }
     
-    res.json({ success: true });
+    res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error moving track:', error);
     res.status(500).json({ error: 'Failed to move track' });
   }
-});
+}
 
 // Copy track to another scene
-app.post('/api/copy-track', (req, res) => {
+async function copyTrack(req, res) {
   try {
-    const { sourceScene, targetScene, trackName, version, tagName } = req.body;
+    const { sourceScene, targetScene, trackName, version, tagName } = req.body || {};
     
     if (!sourceScene || !targetScene || !trackName || !version) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
     
+    const musicDir = getMusicDir();
     const versionPath = path.join(musicDir, version);
     const sourceScenePath = path.join(versionPath, sourceScene);
     const targetScenePath = path.join(versionPath, targetScene);
@@ -325,22 +322,23 @@ app.post('/api/copy-track', (req, res) => {
     // Copy the file
     fs.copySync(sourceTrackPath, targetTrackPath);
     
-    res.json({ success: true });
+    res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error copying track:', error);
     res.status(500).json({ error: 'Failed to copy track' });
   }
-});
+}
 
 // Create a new tag folder in a scene
-app.post('/api/create-tag', (req, res) => {
+async function createTag(req, res) {
   try {
-    const { scene, version, tagName } = req.body;
+    const { scene, version, tagName } = req.body || {};
     
     if (!scene || !version || !tagName) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
     
+    const musicDir = getMusicDir();
     const versionPath = path.join(musicDir, version);
     const scenePath = path.join(versionPath, scene);
     const tagPath = path.join(scenePath, tagName);
@@ -355,22 +353,23 @@ app.post('/api/create-tag', (req, res) => {
     
     fs.mkdirSync(tagPath, { recursive: true });
     
-    res.json({ success: true });
+    res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error creating tag:', error);
     res.status(500).json({ error: 'Failed to create tag' });
   }
-});
+}
 
 // Rename a track with play time information
-app.put('/api/rename-track', (req, res) => {
+async function renameTrack(req, res) {
   try {
-    const { scene, version, oldName, newName, tagName } = req.body;
+    const { scene, version, oldName, newName, tagName } = req.body || {};
     
     if (!scene || !version || !oldName || !newName) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
     
+    const musicDir = getMusicDir();
     const versionPath = path.join(musicDir, version);
     const scenePath = path.join(versionPath, scene);
     
@@ -403,22 +402,23 @@ app.put('/api/rename-track', (req, res) => {
     // Rename the file
     fs.renameSync(sourceTrackPath, targetTrackPath);
     
-    res.json({ success: true });
+    res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error renaming track:', error);
     res.status(500).json({ error: 'Failed to rename track' });
   }
-});
+}
 
 // Reorder tracks between 'select' and 'selected' folders
-app.put('/api/reorder-tracks', (req, res) => {
+async function reorderTracks(req, res) {
   try {
-    const { scene, version } = req.body;
+    const { scene, version } = req.body || {};
     
     if (!scene || !version) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
     
+    const musicDir = getMusicDir();
     const versionPath = path.join(musicDir, version);
     const scenePath = path.join(versionPath, scene);
     
@@ -458,22 +458,23 @@ app.put('/api/reorder-tracks', (req, res) => {
       fs.moveSync(sourcePath, targetPath);
     }
     
-    res.json({ success: true });
+    res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error reordering tracks:', error);
-    res.status(50).json({ error: 'Failed to reorder tracks' });
+    res.status(500).json({ error: 'Failed to reorder tracks' });
   }
-});
+}
 
 // Select a specific track from 'select' folder to move to 'selected' folder
-app.put('/api/select-track', (req, res) => {
+async function selectTrack(req, res) {
   try {
-    const { scene, version, trackName } = req.body;
+    const { scene, version, trackName } = req.body || {};
     
     if (!scene || !version || !trackName) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
     
+    const musicDir = getMusicDir();
     const versionPath = path.join(musicDir, version);
     const scenePath = path.join(versionPath, scene);
     
@@ -511,21 +512,9 @@ app.put('/api/select-track', (req, res) => {
     const targetPath = path.join(selectedPath, trackName);
     fs.moveSync(trackToMovePath, targetPath);
     
-    res.json({ success: true });
+    res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error selecting track:', error);
     res.status(500).json({ error: 'Failed to select track' });
   }
-});
-
-// Serve static files from the client build directory
-app.use(express.static(path.join(__dirname, 'client/build')));
-
-// Handle React routing
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+}

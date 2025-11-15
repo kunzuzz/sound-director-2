@@ -8,9 +8,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const musicTableRef = useRef(null);
 
-  useEffect(() => {
+   useEffect(() => {
     fetchVersions();
-  }, []);
+ }, []);
 
   const fetchVersions = async () => {
     try {
