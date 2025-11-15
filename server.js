@@ -13,31 +13,72 @@ app.use(express.json());
 // Enhanced static file serving for music folder with proper content-type handling
 app.use('/music', (req, res, next) => {
   // Decode the URL to handle special characters in file paths
-  req.url = decodeURIComponent(req.url);
-  express.static('music', {
-    setHeaders: (res, filePath) => {
-      // Enhanced content-type detection for various audio formats
-      const ext = path.extname(filePath).toLowerCase();
-      const contentTypeMap = {
-        '.mp3': 'audio/mpeg',
-        '.wav': 'audio/wav',
-        '.m4a': 'audio/mp4',
-        '.m4b': 'audio/mp4',
-        '.aac': 'audio/aac',
-        '.flac': 'audio/flac',
-        '.ogg': 'audio/ogg',
-        '.opus': 'audio/opus',
-        '.wma': 'audio/x-ms-wma',
-        '.aiff': 'audio/x-aiff',
-        '.aif': 'audio/x-aiff',
-        '.mid': 'audio/midi',
-        '.midi': 'audio/midi'
-      };
-      
-      const contentType = contentTypeMap[ext] || 'application/octet-stream';
-      res.setHeader('Content-Type', contentType);
-    }
-  })(req, res, next);
+  const decodedUrl = decodeURIComponent(req.url);
+  const filePath = path.join(__dirname, 'music', decodedUrl);
+  
+  // Check if the file exists and is within the music directory (security check)
+  const musicDir = path.join(__dirname, 'music');
+  const relativePath = path.relative(musicDir, filePath);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    return res.status(403).send('Forbidden');
+  }
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('File not found');
+  }
+  
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile()) {
+    return res.status(400).send('Path is not a file');
+  }
+  
+  // Enhanced content-type detection for various audio formats
+ const ext = path.extname(filePath).toLowerCase();
+  const contentTypeMap = {
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.m4a': 'audio/mp4',
+    '.m4b': 'audio/mp4',
+    '.aac': 'audio/aac',
+    '.flac': 'audio/flac',
+    '.ogg': 'audio/ogg',
+    '.opus': 'audio/opus',
+    '.wma': 'audio/x-ms-wma',
+    '.aiff': 'audio/x-aiff',
+    '.aif': 'audio/x-aiff',
+    '.mid': 'audio/midi',
+    '.midi': 'audio/midi'
+  };
+  
+  const contentType = contentTypeMap[ext] || 'application/octet-stream';
+  res.setHeader('Content-Type', contentType);
+  
+  // Set other headers to help with audio streaming
+ res.setHeader('Accept-Ranges', 'bytes');
+  
+  // Handle range requests for better audio streaming
+  const fileSize = stat.size;
+  const range = req.headers.range;
+  
+  if (range) {
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const chunksize = (end - start) + 1;
+    const file = fs.createReadStream(filePath, { start, end });
+    
+    res.writeHead(206, {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunksize,
+      'Content-Type': contentType,
+    });
+    
+    file.pipe(res);
+  } else {
+    res.setHeader('Content-Length', fileSize);
+    fs.createReadStream(filePath).pipe(res);
+ }
 });
 
 // Multer setup for file uploads
@@ -519,10 +560,11 @@ app.put('/api/select-track', (req, res) => {
 });
 
 // Serve static files from the client build directory
+// But only after API and music routes are handled
 app.use(express.static(path.join(__dirname, 'client/build')));
 
-// Handle React routing
-app.get('*', (req, res) => {
+// Handle React routing (only for routes that aren't API or music)
+app.get(/^(?!\/api|\/music).+$/, (req, res) => {
   res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
 });
 
