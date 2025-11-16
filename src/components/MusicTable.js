@@ -761,6 +761,12 @@ MusicTable.displayName = 'MusicTable';
     
     // Only make the API call if the name actually changed
     if (newTrackName !== trackName) {
+      // Find the track object to get the tagName
+      const trackObj = scenes.find(s => s.name === sceneName)
+        ?.tracks.find(t => t.name === trackName);
+      
+      const tagName = trackObj ? trackObj.tagName : null;
+      
       try {
         const response = await fetch('/api/rename-track', {
           method: 'PUT',
@@ -772,7 +778,7 @@ MusicTable.displayName = 'MusicTable';
             version: version,
             oldName: trackName,
             newName: newTrackName,
-            tagName: null // We don't have a tag name in this context
+            tagName: tagName
           }),
         });
         
@@ -784,7 +790,7 @@ MusicTable.displayName = 'MusicTable';
               scene: sceneName,
               oldName: trackName,
               newName: newTrackName,
-              tagName: null
+              tagName: tagName
             }]
           }));
           
@@ -1168,7 +1174,7 @@ MusicTable.displayName = 'MusicTable';
                           )}
                           
                           <span className="track-name">
-                            {renameTrack && renameTrack.scene === scene.name && renameTrack.trackName === track.name ? (
+                                {renameTrack && renameTrack.scene === scene.name && renameTrack.trackName === track.name ? (
                               <input
                                 type="text"
                                 value={renameTrack.newName}
@@ -1203,7 +1209,8 @@ MusicTable.displayName = 'MusicTable';
                                     onClick={() => setRenameTrack({
                                       scene: scene.name,
                                       trackName: track.name,
-                                      newName: track.name
+                                      newName: track.name,
+                                      tagName: track.tagName  // Include tagName when setting renameTrack
                                     })}
                                   >
                                     Rename
