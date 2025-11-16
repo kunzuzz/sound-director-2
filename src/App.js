@@ -7,9 +7,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const musicTableRef = useRef(null);
 
-   useEffect(() => {
+  useEffect(() => {
     fetchVersions();
- }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchVersions = async () => {
     try {
@@ -36,9 +36,9 @@ function App() {
     } finally {
       setLoading(false);
     }
- };
+  };
 
-   const createNewVersion = async (fromVersion = null) => {
+  const createNewVersion = async (fromVersion = null) => {
     try {
       setLoading(true);
       const response = await fetch('/api/versions', {
@@ -128,7 +128,7 @@ function App() {
           <MusicTable 
             ref={musicTableRef}
             version={selectedVersion} 
-            onSave={() => fetchVersions()} 
+            onSave={fetchVersions} 
           />
         ) : (
           <p>Please select or create a version to begin.</p>
