@@ -3,7 +3,7 @@ import path from 'path';
 
 // For Vercel environment compatibility
 const getMusicDir = () => {
-  return path.join(process.cwd(), '../music');
+  return path.join(process.cwd(), 'music');
 };
 
 // Helper function to get tracks for a scene

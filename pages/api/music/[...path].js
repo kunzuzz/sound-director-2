@@ -23,9 +23,8 @@ export default async function handler(req, res) {
     const filePath = req.query.path.join('/');
     
     // Construct the full path to the music file
-    // The music directory is in the parent directory of the client directory
-    // When running from client directory, process.cwd() is the client directory
-    const musicDir = path.join(process.cwd(), '../music');
+    // The music directory is in the same directory as the project
+    const musicDir = path.join(process.cwd(), 'music');
     const fullPath = path.join(musicDir, filePath);
     
     // Security check: ensure the path doesn't go outside the music directory
