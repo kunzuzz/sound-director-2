@@ -78,7 +78,8 @@ MusicTable.displayName = 'MusicTable';
   const [trackDurations, setTrackDurations] = useState({});
   const [trackCurrentTimes, setTrackCurrentTimes] = useState({});
   const [trackStartTimes, setTrackStartTimes] = useState({});
-  const [trackMarkers, setTrackMarkers] = useState({}); // Store start/end markers for each track
+   const [trackMarkers, setTrackMarkers] = useState({}); // Store start/end markers for each track
+  const [expandedTracks, setExpandedTracks] = useState({}); // Track expanded state for each scene
 
   useEffect(() => {
     fetchScenes();
@@ -1122,59 +1123,57 @@ MusicTable.displayName = 'MusicTable';
                       });
                     }
                     
-                    return sortedTracks.map((track, index) => {
-                      const trackStatus = getTrackChangeStatus(scene.name, track);
-                      const audioId = `${scene.name}-${track.name}`;
-                      const waveformData = generateWaveformData(audioId);
-                      
-                      // Check if this is a scene with multiple tracks that need a selection dropdown
-                      const sceneOptions = getMultipleTrackScenes();
-                      const hasMultipleTracks = sceneOptions[scene.name];
-                      
-                      // For scenes with multiple tracks, only show the selected track in display mode
-                      const shouldShowTrack = mode === 'edit' || 
-                                             !isMultipleTrackScene || 
-                                             (isMultipleTrackScene && 
-                                              track.name === (selectedOptions[scene.name] || 
-                                                             (hasMultipleTracks ? hasMultipleTracks.mainTrack.name : track.name)));
-                      
-                      // Only render the track item if it should be visible
-                      if (!shouldShowTrack) {
-                        return null;
+                    // Group tracks by tag for better organization
+                    const groupedTracks = {};
+                    sortedTracks.forEach(track => {
+                      const tag = track.tagName || 'default';
+                      if (!groupedTracks[tag]) {
+                        groupedTracks[tag] = [];
                       }
-                      
-                      return (
-                        <div 
-                          key={index} 
-                          className={`track-item ${
-                            trackStatus === 'removed' ? 'track-removed' : 
-                            trackStatus === 'added' ? 'track-added' :
-                            trackStatus === 'changed' ? 'track-changed' : ''
-                          }`}
-                          draggable={mode === 'edit'}
-                          onDragStart={(e) => handleDragStart(e, track, scene.name)}
-                        >
-                          {track.isTag && (
-                            <span className="tag-label">{track.tagName}</span>
-                          )}
-                          
-                          {/* For scenes with multiple tracks, make the "select" tag clickable to reorder tracks */}
-                          {isMultipleTrackScene && track.isTag && track.tagName === 'select' && mode === 'edit' && (
+                      groupedTracks[tag].push(track);
+                    });
+                    
+                    // Create an array to hold all elements to render
+                    const elementsToRender = [];
+                    
+                    // Process each tag group
+                    Object.entries(groupedTracks).forEach(([tagName, tracks]) => {
+                      // Add the tag header
+                      elementsToRender.push(
+                        <div key={`tag-${scene.name}-${tagName}`} className="tag-header">
+                          <span className="tag-label">{tagName}</span>
+                          {mode === 'edit' && tagName === 'select' && tracks.length > 1 && (
                             <button 
-                              className="select-btn"
-                              onClick={() => reorderTracks(scene.name, track.tagName, track.name)}
+                              className="expand-btn"
+                              onClick={() => setExpandedTracks(prev => ({
+                                ...prev,
+                                [`${scene.name}-${tagName}`]: !prev[`${scene.name}-${tagName}`]
+                              }))}
                             >
-                              Select
+                              {(expandedTracks[`${scene.name}-${tagName}`] || false) ? '▼' : '▶️'} Other options
                             </button>
                           )}
-                          
-                          {/* For scenes with multiple tracks, just show "selected" as a tag */}
-                          {isMultipleTrackScene && track.isTag && track.tagName === 'selected' && (
-                            <span className="selected-tag">{track.tagName}</span>
-                          )}
-                          
+                        </div>
+                      );
+                      
+                      // Add the first track (always visible)
+                      const firstTrack = tracks[0];
+                      const audioId = `${scene.name}-${firstTrack.name}`;
+                      const waveformData = generateWaveformData(audioId);
+                      
+                      elementsToRender.push(
+                        <div 
+                          key={`track-${scene.name}-${firstTrack.name}`}
+                          className={`track-item ${
+                            getTrackChangeStatus(scene.name, firstTrack) === 'removed' ? 'track-removed' : 
+                            getTrackChangeStatus(scene.name, firstTrack) === 'added' ? 'track-added' :
+                            getTrackChangeStatus(scene.name, firstTrack) === 'changed' ? 'track-changed' : ''
+                          }`}
+                          draggable={mode === 'edit'}
+                          onDragStart={(e) => handleDragStart(e, firstTrack, scene.name)}
+                        >
                           <span className="track-name">
-                                {renameTrack && renameTrack.scene === scene.name && renameTrack.trackName === track.name ? (
+                                {renameTrack && renameTrack.scene === scene.name && renameTrack.trackName === firstTrack.name ? (
                               <input
                                 type="text"
                                 value={renameTrack.newName}
@@ -1184,17 +1183,17 @@ MusicTable.displayName = 'MusicTable';
                                 })}
                                 onBlur={() => renameTrackHandler(
                                   scene.name, 
-                                  track.name, 
+                                  firstTrack.name, 
                                   renameTrack.newName, 
-                                  track.tagName
+                                  firstTrack.tagName
                                 )}
                                 onKeyPress={(e) => {
                                   if (e.key === 'Enter') {
                                     renameTrackHandler(
                                       scene.name, 
-                                      track.name, 
+                                      firstTrack.name, 
                                       renameTrack.newName, 
-                                      track.tagName
+                                      firstTrack.tagName
                                     );
                                   }
                                 }}
@@ -1202,15 +1201,15 @@ MusicTable.displayName = 'MusicTable';
                               />
                             ) : (
                               <>
-                                {track.name}
+                                {firstTrack.name}
                                 {mode === 'edit' && (
                                   <button 
                                     className="rename-btn"
                                     onClick={() => setRenameTrack({
                                       scene: scene.name,
-                                      trackName: track.name,
-                                      newName: track.name,
-                                      tagName: track.tagName  // Include tagName when setting renameTrack
+                                      trackName: firstTrack.name,
+                                      newName: firstTrack.name,
+                                      tagName: firstTrack.tagName  // Include tagName when setting renameTrack
                                     })}
                                   >
                                     Rename
@@ -1276,7 +1275,7 @@ MusicTable.displayName = 'MusicTable';
                                 </div>
                                 <button 
                                   className="save-trim-btn"
-                                  onClick={() => saveMarkersToTrack(track.name, scene.name)}
+                                  onClick={() => saveMarkersToTrack(firstTrack.name, scene.name)}
                                 >
                                   Save Trim
                                 </button>
@@ -1289,43 +1288,43 @@ MusicTable.displayName = 'MusicTable';
                             <div className="audio-player">
                               <button 
                                 className="play-btn"
-                                onClick={() => handlePlayTrack(track.name, scene.name)}
+                                onClick={() => handlePlayTrack(firstTrack.name, scene.name)}
                               >
-                                {playingTrack === `${scene.name}-${track.name}` ? '⏸️' : '▶️'}
+                                {playingTrack === `${scene.name}-${firstTrack.name}` ? '⏸️' : '▶️'}
                               </button>
                               
                               {mode === 'edit' && (
                                 <div className="timeline-container">
                                   <div 
                                     className="timeline"
-                                    onClick={(e) => handleSeek(e, track.name, scene.name)}
+                                    onClick={(e) => handleSeek(e, firstTrack.name, scene.name)}
                                   >
                                     <div 
                                       className="progress"
-                                      style={{ width: `${trackProgress[`${scene.name}-${track.name}`] || 0}%` }}
+                                      style={{ width: `${trackProgress[`${scene.name}-${firstTrack.name}`] || 0}%` }}
                                     ></div>
                                     
                                     {/* Start marker indicator */}
-                                    {trackMarkers[`${scene.name}-${track.name}`] && trackMarkers[`${scene.name}-${track.name}`].start !== 0 && trackDurations[`${scene.name}-${track.name}`] && isFinite(trackDurations[`${scene.name}-${track.name}`]) && (
+                                    {trackMarkers[`${scene.name}-${firstTrack.name}`] && trackMarkers[`${scene.name}-${firstTrack.name}`].start !== 0 && trackDurations[`${scene.name}-${firstTrack.name}`] && isFinite(trackDurations[`${scene.name}-${firstTrack.name}`]) && (
                                       <div 
                                         className="marker start-marker"
                                         style={{ 
-                                          left: `${(trackMarkers[`${scene.name}-${track.name}`].start / trackDurations[`${scene.name}-${track.name}`]) * 100}%` 
+                                          left: `${(trackMarkers[`${scene.name}-${firstTrack.name}`].start / trackDurations[`${scene.name}-${firstTrack.name}`]) * 10}%` 
                                         }}
-                                        title={`Start: ${formatTime(trackMarkers[`${scene.name}-${track.name}`].start)}`}
+                                        title={`Start: ${formatTime(trackMarkers[`${scene.name}-${firstTrack.name}`].start)}`}
                                       >
                                         |
                                       </div>
                                     )}
                                     
                                     {/* End marker indicator */}
-                                    {trackMarkers[`${scene.name}-${track.name}`] && trackMarkers[`${scene.name}-${track.name}`].end !== null && trackDurations[`${scene.name}-${track.name}`] && isFinite(trackDurations[`${scene.name}-${track.name}`]) && (
+                                    {trackMarkers[`${scene.name}-${firstTrack.name}`] && trackMarkers[`${scene.name}-${firstTrack.name}`].end !== null && trackDurations[`${scene.name}-${firstTrack.name}`] && isFinite(trackDurations[`${scene.name}-${firstTrack.name}`]) && (
                                       <div 
                                         className="marker end-marker"
                                         style={{ 
-                                          left: `${(trackMarkers[`${scene.name}-${track.name}`].end / trackDurations[`${scene.name}-${track.name}`]) * 100}%` 
+                                          left: `${(trackMarkers[`${scene.name}-${firstTrack.name}`].end / trackDurations[`${scene.name}-${firstTrack.name}`]) * 100}%` 
                                         }}
-                                        title={`End: ${formatTime(trackMarkers[`${scene.name}-${track.name}`].end)}`}
+                                        title={`End: ${formatTime(trackMarkers[`${scene.name}-${firstTrack.name}`].end)}`}
                                       >
                                         |
                                       </div>
@@ -1333,11 +1332,11 @@ MusicTable.displayName = 'MusicTable';
                                   </div>
                                   
                                   <div className="time-info">
-                                    {isNaN(trackDurations[`${scene.name}-${track.name}`]) ? (
+                                    {isNaN(trackDurations[`${scene.name}-${firstTrack.name}`]) ? (
                                       <span className="error-indicator">❌ Error loading audio</span>
                                     ) : (
                                       <>
-                                        {formatTime(trackCurrentTimes[`${scene.name}-${track.name}`] || 0)} / {formatTime(trackDurations[`${scene.name}-${track.name}`] || 0)}
+                                        {formatTime(trackCurrentTimes[`${scene.name}-${firstTrack.name}`] || 0)} / {formatTime(trackDurations[`${scene.name}-${firstTrack.name}`] || 0)}
                                       </>
                                     )}
                                   </div>
@@ -1345,21 +1344,21 @@ MusicTable.displayName = 'MusicTable';
                                   <div className="marker-controls">
                                     <button 
                                       className="marker-btn start-btn"
-                                      onClick={() => setStartMarker(track.name, scene.name)}
+                                      onClick={() => setStartMarker(firstTrack.name, scene.name)}
                                       title="Set start marker to current position"
                                     >
                                       |◀
                                     </button>
                                     <button 
                                       className="marker-btn end-btn"
-                                      onClick={() => setEndMarker(track.name, scene.name)}
+                                      onClick={() => setEndMarker(firstTrack.name, scene.name)}
                                       title="Set end marker to current position"
                                     >
                                       ▶|
                                     </button>
                                     <button 
                                       className="marker-btn save-btn"
-                                      onClick={() => saveMarkersToTrack(track.name, scene.name)}
+                                      onClick={() => saveMarkersToTrack(firstTrack.name, scene.name)}
                                       title="Save markers to filename"
                                     >
                                       Save
@@ -1370,19 +1369,19 @@ MusicTable.displayName = 'MusicTable';
                               
                               {/* Hidden audio element */}
                               <audio
-                                ref={el => audioRefs.current[`${scene.name}-${track.name}`] = el}
-                                src={`/api/music/${version}/${encodeURIComponent(scene.name)}/${encodeURIComponent(track.relativePath || track.name)}`}
+                                ref={el => audioRefs.current[`${scene.name}-${firstTrack.name}`] = el}
+                                src={`/api/music/${version}/${encodeURIComponent(scene.name)}/${encodeURIComponent(firstTrack.relativePath || firstTrack.name)}`}
                                 preload="metadata"
-                                onTimeUpdate={() => updateProgress(track.name, scene.name)}
-                                onEnded={() => handleTrackEnd(track.name, scene.name)}
-                                onLoadedMetadata={() => handleLoadedMetadata(track.name, scene.name)}
+                                onTimeUpdate={() => updateProgress(firstTrack.name, scene.name)}
+                                onEnded={() => handleTrackEnd(firstTrack.name, scene.name)}
+                                onLoadedMetadata={() => handleLoadedMetadata(firstTrack.name, scene.name)}
                                 onError={(e) => {
                                   const audioSrc = e.target.src;
-                                  console.error(`Error loading audio: ${track.name}`, `URL: ${audioSrc}`, e.target.error);
+                                  console.error(`Error loading audio: ${firstTrack.name}`, `URL: ${audioSrc}`, e.target.error);
                                   // Set an error state for this specific track to show in UI
                                   setTrackDurations(prev => ({
                                     ...prev,
-                                    [`${scene.name}-${track.name}`]: NaN
+                                    [`${scene.name}-${firstTrack.name}`]: NaN
                                   }));
                                 }}
                               />
@@ -1390,7 +1389,249 @@ MusicTable.displayName = 'MusicTable';
                           </div>
                         </div>
                       );
+                      
+                      // Add the remaining tracks in the expandable section if there are more than one track in the tag
+                      if (tracks.length > 1) {
+                        const expanded = expandedTracks[`${scene.name}-${tagName}`] || false;
+                        if (expanded) {
+                          tracks.slice(1).forEach((track, trackIndex) => {
+                            const audioId = `${scene.name}-${track.name}`;
+                            const waveformData = generateWaveformData(audioId);
+                            
+                            elementsToRender.push(
+                              <div 
+                                key={`track-${scene.name}-${track.name}-${trackIndex}`}
+                                className={`track-item expanded-track ${
+                                  getTrackChangeStatus(scene.name, track) === 'removed' ? 'track-removed' : 
+                                  getTrackChangeStatus(scene.name, track) === 'added' ? 'track-added' :
+                                  getTrackChangeStatus(scene.name, track) === 'changed' ? 'track-changed' : ''
+                                }`}
+                                draggable={mode === 'edit'}
+                                onDragStart={(e) => handleDragStart(e, track, scene.name)}
+                              >
+                                <span className="track-name">
+                                      {renameTrack && renameTrack.scene === scene.name && renameTrack.trackName === track.name ? (
+                                    <input
+                                      type="text"
+                                      value={renameTrack.newName}
+                                      onChange={(e) => setRenameTrack({
+                                        ...renameTrack,
+                                        newName: e.target.value
+                                      })}
+                                      onBlur={() => renameTrackHandler(
+                                        scene.name, 
+                                        track.name, 
+                                        renameTrack.newName, 
+                                        track.tagName
+                                      )}
+                                      onKeyPress={(e) => {
+                                        if (e.key === 'Enter') {
+                                          renameTrackHandler(
+                                            scene.name, 
+                                            track.name, 
+                                            renameTrack.newName, 
+                                            track.tagName
+                                          );
+                                        }
+                                      }}
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <>
+                                      {track.name}
+                                      {mode === 'edit' && (
+                                        <button 
+                                          className="rename-btn"
+                                          onClick={() => setRenameTrack({
+                                            scene: scene.name,
+                                            trackName: track.name,
+                                            newName: track.name,
+                                            tagName: track.tagName  // Include tagName when setting renameTrack
+                                          })}
+                                        >
+                                          Rename
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </span>
+                                
+                                {/* Waveform visualization for trim mode */}
+                                {mode === 'edit' && (
+                                  <div className="waveform-container">
+                                    <div className="waveform">
+                                      {waveformData.map((amplitude, index) => (
+                                        <div
+                                          key={index}
+                                          className="waveform-bar"
+                                          style={{
+                                            height: `${amplitude * 100}%`,
+                                            left: `${(index / waveformData.length) * 10}%`
+                                          }}
+                                        ></div>
+                                      ))}
+                                    </div>
+                                    <div className="trim-controls">
+                                      <div className="trim-start">
+                                        <label>Start: </label>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={trackMarkers[audioId]?.start || 0}
+                                          onChange={(e) => {
+                                            const newStart = parseFloat(e.target.value) || 0;
+                                            setTrackMarkers(prev => ({
+                                              ...prev,
+                                              [audioId]: { 
+                                                ...prev[audioId], 
+                                                start: newStart 
+                                              }
+                                            }));
+                                          }}
+                                          step="0.1"
+                                        />
+                                      </div>
+                                      <div className="trim-end">
+                                        <label>End: </label>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={trackMarkers[audioId]?.end ?? (trackDurations[audioId] || 100)}
+                                          onChange={(e) => {
+                                            const newEnd = parseFloat(e.target.value);
+                                            setTrackMarkers(prev => ({
+                                              ...prev,
+                                              [audioId]: { 
+                                                ...prev[audioId], 
+                                                end: newEnd 
+                                              }
+                                            }));
+                                          }}
+                                          step="0.1"
+                                        />
+                                      </div>
+                                      <button 
+                                        className="save-trim-btn"
+                                        onClick={() => saveMarkersToTrack(track.name, scene.name)}
+                                      >
+                                        Save Trim
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                <div className="track-actions">
+                                  {/* Audio player with timeline */}
+                                  <div className="audio-player">
+                                    <button 
+                                      className="play-btn"
+                                      onClick={() => handlePlayTrack(track.name, scene.name)}
+                                    >
+                                      {playingTrack === `${scene.name}-${track.name}` ? '⏸️' : '▶️'}
+                                    </button>
+                                    
+                                    {mode === 'edit' && (
+                                      <div className="timeline-container">
+                                        <div 
+                                          className="timeline"
+                                          onClick={(e) => handleSeek(e, track.name, scene.name)}
+                                        >
+                                          <div 
+                                            className="progress"
+                                            style={{ width: `${trackProgress[`${scene.name}-${track.name}`] || 0}%` }}
+                                          ></div>
+                                          
+                                          {/* Start marker indicator */}
+                                          {trackMarkers[`${scene.name}-${track.name}`] && trackMarkers[`${scene.name}-${track.name}`].start !== 0 && trackDurations[`${scene.name}-${track.name}`] && isFinite(trackDurations[`${scene.name}-${track.name}`]) && (
+                                            <div 
+                                              className="marker start-marker"
+                                              style={{ 
+                                                left: `${(trackMarkers[`${scene.name}-${track.name}`].start / trackDurations[`${scene.name}-${track.name}`]) * 100}%` 
+                                              }}
+                                              title={`Start: ${formatTime(trackMarkers[`${scene.name}-${track.name}`].start)}`}
+                                            >
+                                              |
+                                            </div>
+                                          )}
+                                          
+                                          {/* End marker indicator */}
+                                          {trackMarkers[`${scene.name}-${track.name}`] && trackMarkers[`${scene.name}-${track.name}`].end !== null && trackDurations[`${scene.name}-${track.name}`] && isFinite(trackDurations[`${scene.name}-${track.name}`]) && (
+                                            <div 
+                                              className="marker end-marker"
+                                              style={{ 
+                                                left: `${(trackMarkers[`${scene.name}-${track.name}`].end / trackDurations[`${scene.name}-${track.name}`]) * 100}%` 
+                                              }}
+                                              title={`End: ${formatTime(trackMarkers[`${scene.name}-${track.name}`].end)}`}
+                                            >
+                                              |
+                                            </div>
+                                          )}
+                                        </div>
+                                        
+                                        <div className="time-info">
+                                          {isNaN(trackDurations[`${scene.name}-${track.name}`]) ? (
+                                            <span className="error-indicator">❌ Error loading audio</span>
+                                          ) : (
+                                            <>
+                                              {formatTime(trackCurrentTimes[`${scene.name}-${track.name}`] || 0)} / {formatTime(trackDurations[`${scene.name}-${track.name}`] || 0)}
+                                            </>
+                                          )}
+                                        </div>
+                                      
+                                        <div className="marker-controls">
+                                          <button 
+                                            className="marker-btn start-btn"
+                                            onClick={() => setStartMarker(track.name, scene.name)}
+                                            title="Set start marker to current position"
+                                          >
+                                            |◀
+                                          </button>
+                                          <button 
+                                            className="marker-btn end-btn"
+                                            onClick={() => setEndMarker(track.name, scene.name)}
+                                            title="Set end marker to current position"
+                                          >
+                                            ▶|
+                                          </button>
+                                          <button 
+                                            className="marker-btn save-btn"
+                                            onClick={() => saveMarkersToTrack(track.name, scene.name)}
+                                            title="Save markers to filename"
+                                          >
+                                            Save
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Hidden audio element */}
+                                    <audio
+                                      ref={el => audioRefs.current[`${scene.name}-${track.name}`] = el}
+                                      src={`/api/music/${version}/${encodeURIComponent(scene.name)}/${encodeURIComponent(track.relativePath || track.name)}`}
+                                      preload="metadata"
+                                      onTimeUpdate={() => updateProgress(track.name, scene.name)}
+                                      onEnded={() => handleTrackEnd(track.name, scene.name)}
+                                      onLoadedMetadata={() => handleLoadedMetadata(track.name, scene.name)}
+                                      onError={(e) => {
+                                        const audioSrc = e.target.src;
+                                        console.error(`Error loading audio: ${track.name}`, `URL: ${audioSrc}`, e.target.error);
+                                        // Set an error state for this specific track to show in UI
+                                        setTrackDurations(prev => ({
+                                          ...prev,
+                                          [`${scene.name}-${track.name}`]: NaN
+                                        }));
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          });
+                        }
+                      }
                     });
+                    
+                    return elementsToRender;
                   })()}
                 </div>
                 
