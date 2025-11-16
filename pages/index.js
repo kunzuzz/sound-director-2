@@ -1,34 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { decryptSession } from '../utils/session';
 import App from '../src/App';
-
-// Helper function to get cookie value
-function getCookie(name) {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop().split(';').shift();
-  return null;
-}
 
 export default function Home() {
   const [authorized, setAuthorized] = useState(null);
   const router = useRouter();
 
-   useEffect(() => {
+  useEffect(() => {
     const checkAuth = async () => {
-      const sessionCookie = getCookie('session');
-      
-      if (!sessionCookie) {
-        router.push('/login');
-        return;
-      }
-
       try {
-        const session = await decryptSession(sessionCookie);
-        if (session && session.authenticated) {
+        // Try to access a protected API to check if user is authenticated
+        const response = await fetch('/api/versions');
+        
+        if (response.status === 200) {
+          // User is authenticated
           setAuthorized(true);
         } else {
+          // User is not authenticated, redirect to login
           router.push('/login');
         }
       } catch (error) {

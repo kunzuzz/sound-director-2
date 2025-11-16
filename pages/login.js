@@ -22,8 +22,7 @@ export default function Login() {
       if (response.ok) {
         // Login successful
         const result = await response.json();
-        // Set the session cookie using document.cookie
-        document.cookie = `session=${result.session}; max-age=${60 * 60 * 24 * 60}; path=/; samesite=strict`;
+        // Iron-session handles the cookie automatically
         router.push('/');
       } else {
         // Login failed
