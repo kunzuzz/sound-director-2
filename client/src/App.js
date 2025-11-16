@@ -9,7 +9,7 @@ function App() {
 
    useEffect(() => {
     fetchVersions();
- }, []);
+ }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchVersions = async () => {
     try {

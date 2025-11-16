@@ -2,8 +2,7 @@
 const nextConfig = {
   images: {
     unoptimized: true
-  },
-  outputFileTracingRoot: '../../../',
+ },
 };
 
 module.exports = nextConfig;

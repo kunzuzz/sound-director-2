@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 
 const MusicTable = forwardRef(({ version, onSave }, ref) => {
+  
+
+MusicTable.displayName = 'MusicTable';
   // Expose the clearChanges function to the parent component
   useImperativeHandle(ref, () => ({
     clearChanges: () => {
@@ -77,9 +80,9 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
   const [trackStartTimes, setTrackStartTimes] = useState({});
   const [trackMarkers, setTrackMarkers] = useState({}); // Store start/end markers for each track
 
- useEffect(() => {
+  useEffect(() => {
     fetchScenes();
-  }, [version]); // Fetch scenes when version changes, but preserve changes
+ }, [version]); // Fetch scenes when version changes, but preserve changes
 
  // Handle keyboard shortcuts
   useEffect(() => {
@@ -94,7 +97,7 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [scenes, playingTrack]);
+  }, [scenes, playingTrack]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchScenes = async () => {
     try {
