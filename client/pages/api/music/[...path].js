@@ -18,15 +18,17 @@ export default async function handler(req, res) {
     return;
   }
 
-  try {
+    try {
     // Extract the file path from the URL
     const filePath = req.query.path.join('/');
     
     // Construct the full path to the music file
-    const fullPath = path.join(process.cwd(), '../music', filePath);
+    // The music directory is in the parent directory of the client directory
+    // When running from client directory, process.cwd() is the client directory
+    const musicDir = path.join(process.cwd(), '../music');
+    const fullPath = path.join(musicDir, filePath);
     
     // Security check: ensure the path doesn't go outside the music directory
-    const musicDir = path.join(process.cwd(), '../music');
     const relativePath = path.relative(musicDir, fullPath);
     if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
       res.status(400).json({ error: 'Invalid file path' });

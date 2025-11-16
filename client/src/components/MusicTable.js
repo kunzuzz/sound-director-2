@@ -1343,7 +1343,7 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
                               {/* Hidden audio element */}
                               <audio
                                 ref={el => audioRefs.current[`${scene.name}-${track.name}`] = el}
-                                src={`/music/${version}/${encodeURIComponent(scene.name)}/${encodeURIComponent(track.relativePath || track.name)}`}
+                                src={`/api/music/${version}/${encodeURIComponent(scene.name)}/${encodeURIComponent(track.relativePath || track.name)}`}
                                 preload="metadata"
                                 onTimeUpdate={() => updateProgress(track.name, scene.name)}
                                 onEnded={() => handleTrackEnd(track.name, scene.name)}
