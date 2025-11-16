@@ -59,11 +59,26 @@
 
 .tag-label {
   background-color: #d3d3d3; /* light grey */
-  color: white;
+  color: black;
   padding: 2px 6px;
   border-radius: 12px;
   font-size: 0.8em;
  margin-right: 8px;
+}
+
+.tag-label.default {
+  background-color: #e0e0e0;
+  color: black;
+}
+
+.tag-label.select {
+  background-color: #a0c4ff;
+  color: black;
+}
+
+.tag-label.selected {
+  background-color: #80ff80;
+  color: black;
 }
 
 .track-name {

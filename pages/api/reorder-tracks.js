@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { requireAuthentication } from '../../utils/session';
 
 // For Vercel environment compatibility
 const getMusicDir = () => {
@@ -7,10 +8,18 @@ const getMusicDir = () => {
 };
 
 export default async function handler(req, res) {
+  // Require authentication for all requests except OPTIONS
+  if (req.method !== 'OPTIONS') {
+    const session = await requireAuthentication(req, res);
+    if (!session) {
+      return; // Response already handled by requireAuthentication
+    }
+ }
+
   // Enable CORS for all requests
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+ res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
 
   if (req.method === 'OPTIONS') {
