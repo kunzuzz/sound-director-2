@@ -1,55 +1,10 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
 // For Vercel environment compatibility
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Root handler that will delegate to specific handlers based on the request
-export default async function handler(req, res) {
-  // Enable CORS for all requests
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  const { pathname } = req;
-
-  // Route to different handlers based on the pathname
- if (pathname === '/api/versions' && req.method === 'GET') {
-    return getVersions(req, res);
-  } else if (pathname === '/api/versions' && req.method === 'POST') {
-    return createVersion(req, res);
-  } else if (pathname.match(/^\/api\/versions\/.*\/scenes$/) && req.method === 'GET') {
-    return getScenesForVersion(req, res);
-  } else if (pathname === '/api/move-track' && req.method === 'PUT') {
-    return moveTrack(req, res);
-  } else if (pathname === '/api/copy-track' && req.method === 'POST') {
-    return copyTrack(req, res);
-  } else if (pathname === '/api/create-tag' && req.method === 'POST') {
-    return createTag(req, res);
-  } else if (pathname === '/api/rename-track' && req.method === 'PUT') {
-    return renameTrack(req, res);
-  } else if (pathname === '/api/reorder-tracks' && req.method === 'PUT') {
-    return reorderTracks(req, res);
-  } else if (pathname === '/api/select-track' && req.method === 'PUT') {
-    return selectTrack(req, res);
-  }
-
-  // If no route matches
-  res.status(404).json({ error: 'Route not found' });
-}
-
-// Helper function to get the music directory path
 const getMusicDir = () => {
   // In Vercel environment, we need to handle file paths differently
-  // For now, we'll use a relative path
+ // For now, we'll use a relative path from the project root
   return path.join(process.cwd(), 'music');
 };
 
@@ -85,7 +40,7 @@ function getTracksForScene(scenePath) {
         tagName: null
       });
     }
-  }
+ }
   
   // Sort tracks: first by tag (grouped), then by name
  tracks.sort((a, b) => {
@@ -100,6 +55,46 @@ function getTracksForScene(scenePath) {
   });
   
   return tracks;
+}
+
+export default async function handler(req, res) {
+  // Enable CORS for all requests
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  const { pathname } = req.query;
+
+  // Route to different handlers based on the pathname
+  if (pathname && pathname[0] === 'versions' && req.method === 'GET') {
+    return getVersions(req, res);
+  } else if (pathname && pathname[0] === 'versions' && req.method === 'POST') {
+    return createVersion(req, res);
+  } else if (pathname && pathname.length >= 3 && pathname[0] === 'versions' && pathname[2] === 'scenes' && req.method === 'GET') {
+    req.query.version = pathname[1];
+    return getScenesForVersion(req, res);
+  } else if (pathname && pathname[0] === 'move-track' && req.method === 'PUT') {
+    return moveTrack(req, res);
+  } else if (pathname && pathname[0] === 'copy-track' && req.method === 'POST') {
+    return copyTrack(req, res);
+  } else if (pathname && pathname[0] === 'create-tag' && req.method === 'POST') {
+    return createTag(req, res);
+  } else if (pathname && pathname[0] === 'rename-track' && req.method === 'PUT') {
+    return renameTrack(req, res);
+  } else if (pathname && pathname[0] === 'reorder-tracks' && req.method === 'PUT') {
+    return reorderTracks(req, res);
+  } else if (pathname && pathname[0] === 'select-track' && req.method === 'PUT') {
+    return selectTrack(req, res);
+  }
+
+  // If no route matches
+  res.status(404).json({ error: 'Route not found' });
 }
 
 // Get all versions
@@ -118,8 +113,7 @@ async function getVersions(req, res) {
 // Get scenes for a specific version
 async function getScenesForVersion(req, res) {
   try {
-    // Extract version from the URL
-    const version = req.url.split('/')[3]; // /api/versions/:version/scenes
+    const { version } = req.query;
     const musicDir = getMusicDir();
     const versionPath = path.join(musicDir, version);
     
@@ -192,7 +186,7 @@ async function createVersion(req, res) {
     res.status(200).json({ version: nextVersion });
   } catch (error) {
     console.error('Error creating new version:', error);
-    res.status(50).json({ error: 'Failed to create new version' });
+    res.status(500).json({ error: 'Failed to create new version' });
   }
 }
 
@@ -403,7 +397,7 @@ async function renameTrack(req, res) {
     fs.renameSync(sourceTrackPath, targetTrackPath);
     
     res.status(200).json({ success: true });
-  } catch (error) {
+ } catch (error) {
     console.error('Error renaming track:', error);
     res.status(500).json({ error: 'Failed to rename track' });
   }

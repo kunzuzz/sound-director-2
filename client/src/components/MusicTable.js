@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import './MusicTable.css';
 
 const MusicTable = forwardRef(({ version, onSave }, ref) => {
   // Expose the clearChanges function to the parent component
@@ -100,7 +99,7 @@ const MusicTable = forwardRef(({ version, onSave }, ref) => {
   const fetchScenes = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/versions/${version}/scenes`);
+      const response = await fetch(`/api/scenes?version=${version}`);
       const data = await response.json();
       setScenes(data);
       // Don't reset changes when loading scenes - only clear on save

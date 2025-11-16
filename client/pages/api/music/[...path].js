@@ -1,10 +1,5 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-// For Vercel environment compatibility
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export default async function handler(req, res) {
   // Enable CORS for all requests
@@ -23,15 +18,15 @@ export default async function handler(req, res) {
     return;
   }
 
- try {
+  try {
     // Extract the file path from the URL
     const filePath = req.query.path.join('/');
     
     // Construct the full path to the music file
-    const fullPath = path.join(process.cwd(), 'music', filePath);
+    const fullPath = path.join(process.cwd(), '../music', filePath);
     
     // Security check: ensure the path doesn't go outside the music directory
-    const musicDir = path.join(process.cwd(), 'music');
+    const musicDir = path.join(process.cwd(), '../music');
     const relativePath = path.relative(musicDir, fullPath);
     if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
       res.status(400).json({ error: 'Invalid file path' });
@@ -72,11 +67,34 @@ export default async function handler(req, res) {
     const contentType = contentTypeMap[ext] || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
     
-    // Read and send the file
-    const fileBuffer = fs.readFileSync(fullPath);
-    res.status(200).send(fileBuffer);
+    // Set other headers to help with audio streaming
+    res.setHeader('Accept-Ranges', 'bytes');
+    
+    // Handle range requests for better audio streaming
+    const fileSize = stat.size;
+    const range = req.headers.range;
+    
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      const file = fs.createReadStream(fullPath, { start, end });
+      
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': contentType,
+      });
+      
+      file.pipe(res);
+    } else {
+      res.setHeader('Content-Length', fileSize);
+      fs.createReadStream(fullPath).pipe(res);
+    }
   } catch (error) {
     console.error('Error serving music file:', error);
     res.status(500).json({ error: 'Internal server error' });
- }
+  }
 }

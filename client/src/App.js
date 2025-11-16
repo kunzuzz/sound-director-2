@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import './App.css';
 import MusicTable from './components/MusicTable';
 
 function App() {
