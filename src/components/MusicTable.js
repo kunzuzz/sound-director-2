@@ -239,6 +239,11 @@ MusicTable.displayName = 'MusicTable';
         if (isFinite(audioElement.duration) && audioElement.duration > 0) {
           audioElement.currentTime = Math.max(startTime, 0);
         }
+      } else {
+        // If we're not at the beginning, but we're starting from a marker, go to the start marker
+        if (startTime > 0 && audioElement.currentTime < startTime) {
+          audioElement.currentTime = startTime;
+        }
       }
       
       try {
@@ -419,8 +424,8 @@ MusicTable.displayName = 'MusicTable';
   const renameTrackHandler = async (scene, oldName, newName, tagName) => {
     if (mode !== 'edit') return;
     try {
-      // Check if the new name follows the marker pattern (e.g., trackname_from_10s_to_20s.mp3)
-      const newMarkerMatch = newName.match(/^(.+)_from_(\d+)s_to_(\d+)s(\.[^.]+)$/);
+      // Check if the new name follows the marker pattern (e.g., trackname_from_10s_to_20s.mp3 or trackname_from_10s_to_end.mp3)
+      const newMarkerMatch = newName.match(/^(.+)_from_(\d+)s_to_((\d+)s|end)(\.[^.]+)$/);
       
       let actualNewName = newName;
       if (newMarkerMatch) {
@@ -488,12 +493,20 @@ MusicTable.displayName = 'MusicTable';
       scene.tracks.forEach(track => {
         const audioId = `${scene.name}-${track.name}`;
         
-        // Parse start/end markers from track name
-        const markerMatch = track.name.match(/_from_(\d+)s_to_(\d+)s/);
+        // Parse start/end markers from track name - support multiple patterns
+        const markerMatch = track.name.match(/_from_(\d+)s_to_((\d+)s|end)/);
         if (markerMatch) {
           const startMarker = parseInt(markerMatch[1]);
-          const endMarker = parseInt(markerMatch[2]);
+          let endMarker = null;
+          
+          // Check if the end is specified as a number or 'end'
+          if (markerMatch[2] && markerMatch[2] !== 'end') {
+            endMarker = parseInt(markerMatch[2].replace('s', '')); // Remove 's' suffix if present
+          }
+          
           markers[audioId] = { start: startMarker, end: endMarker };
+          startTimes[audioId] = startMarker;
+          currentTimes[audioId] = startMarker; // Initialize current time with start time
         } else {
           // Check for the existing _play_from_X_sec pattern
           const timeMatch = track.name.match(/_play_from_(\d+)_sec\./);
@@ -551,6 +564,11 @@ MusicTable.displayName = 'MusicTable';
         // Only set currentTime if duration is valid
         if (isFinite(audioElement.duration) && audioElement.duration > 0) {
           audioElement.currentTime = Math.max(startTime, 0);
+        }
+      } else {
+        // If we're not at the beginning, but we're starting from a marker, go to the start marker
+        if (startTime > 0 && audioElement.currentTime < startTime) {
+          audioElement.currentTime = startTime;
         }
       }
       
@@ -1216,10 +1234,9 @@ MusicTable.displayName = 'MusicTable';
                                   <input
                                     type="number"
                                     min="0"
-                                    max={trackDurations[audioId] || 10}
                                     value={trackMarkers[audioId]?.start || 0}
                                     onChange={(e) => {
-                                      const newStart = parseInt(e.target.value);
+                                      const newStart = parseFloat(e.target.value) || 0;
                                       setTrackMarkers(prev => ({
                                         ...prev,
                                         [audioId]: { 
@@ -1228,6 +1245,7 @@ MusicTable.displayName = 'MusicTable';
                                         }
                                       }));
                                     }}
+                                    step="0.1"
                                   />
                                 </div>
                                 <div className="trim-end">
@@ -1235,10 +1253,9 @@ MusicTable.displayName = 'MusicTable';
                                   <input
                                     type="number"
                                     min="0"
-                                    max={trackDurations[audioId] || 100}
-                                    value={trackMarkers[audioId]?.end || trackDurations[audioId] || 100}
+                                    value={trackMarkers[audioId]?.end ?? (trackDurations[audioId] || 100)}
                                     onChange={(e) => {
-                                      const newEnd = parseInt(e.target.value);
+                                      const newEnd = parseFloat(e.target.value);
                                       setTrackMarkers(prev => ({
                                         ...prev,
                                         [audioId]: { 
@@ -1247,6 +1264,7 @@ MusicTable.displayName = 'MusicTable';
                                         }
                                       }));
                                     }}
+                                    step="0.1"
                                   />
                                 </div>
                                 <button 
