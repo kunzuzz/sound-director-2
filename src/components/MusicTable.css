@@ -25,6 +25,14 @@
   width: 150px;
 }
 
+.scene-comment {
+  min-width: 300px;
+ max-width: 400px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .tracks-container {
   min-width: 500px;
 }
