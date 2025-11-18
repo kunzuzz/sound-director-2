@@ -858,12 +858,12 @@ MusicTable.displayName = 'MusicTable';
   // Function to load track metadata from music_tracks.csv
   const loadTrackMetadata = async () => {
     try {
-      const response = await fetch('/api/music/music_tracks.csv'); // We'll need to create this API endpoint
+      // First try loading the file directly from the public directory
+      const response = await fetch('/music_tracks.csv');
       if (response.ok) {
         const csvDataText = await response.text();
-        // Parse CSV data to get track descriptions
         const lines = csvDataText.split('\n');
-        // The header row has format: "Scene","Music","Description"
+        
         if (lines[0].includes('Scene') && lines[0].includes('Music') && lines[0].includes('Description')) {
           const trackData = {};
           
@@ -871,7 +871,6 @@ MusicTable.displayName = 'MusicTable';
             if (!lines[i].trim()) continue;
             
             // Parse the line by comma, but be careful with quoted content
-            // Using a more robust approach to handle commas within quoted strings
             let row = [];
             let currentField = '';
             let inQuotes = false;
@@ -909,64 +908,8 @@ MusicTable.displayName = 'MusicTable';
             }
           }
           
-          console.log('Track metadata loaded successfully:', trackData);
+          console.log('Track metadata loaded successfully from public directory:', trackData);
           return trackData;
-        }
-      } else {
-        // If the API endpoint doesn't exist, try loading the file directly
-        // This fallback approach reads the file from the public directory
-        const response2 = await fetch('/music_tracks.csv');
-        if (response2.ok) {
-          const csvDataText = await response2.text();
-          const lines = csvDataText.split('\n');
-          
-          if (lines[0].includes('Scene') && lines[0].includes('Music') && lines[0].includes('Description')) {
-            const trackData = {};
-            
-            for (let i = 1; i < lines.length; i++) {
-              if (!lines[i].trim()) continue;
-              
-              // Parse the line by comma, but be careful with quoted content
-              let row = [];
-              let currentField = '';
-              let inQuotes = false;
-              let char;
-              
-              for (let j = 0; j < lines[i].length; j++) {
-                char = lines[i][j];
-                
-                if (char === '"') {
-                  inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                  row.push(currentField);
-                  currentField = '';
-                } else {
-                  currentField += char;
-                }
-              }
-              row.push(currentField); // Add the last field
-              
-              // Clean up the fields by removing leading/trailing quotes
-              row = row.map(field => field.trim().replace(/^"|"$/g, ''));
-              
-              if (row.length >= 3) {
-                const scene = row[0];
-                const musicPath = row[1];
-                const description = row[2];
-                
-                // Extract track name from the music path
-                const trackName = musicPath.split('/').pop();
-                
-                // Create a key combining scene and track name to uniquely identify the track
-                const trackKey = `${scene}-${trackName}`;
-                
-                trackData[trackKey] = description;
-              }
-            }
-            
-            console.log('Track metadata loaded successfully from public directory:', trackData);
-            return trackData;
-          }
         }
       }
     } catch (error) {
