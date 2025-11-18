@@ -1,3 +1,57 @@
+/* Track metadata display styles */
+.track-metadata {
+  margin-left: 10px;
+  font-size: 0.9em;
+  color: #666;
+  display: inline-block;
+  max-width: 300px;
+  vertical-align: top;
+}
+
+.metadata-preview {
+  cursor: pointer;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadata-preview:hover {
+  text-decoration: underline;
+}
+
+.show-hide-icon {
+  margin-left: 5px;
+  font-size: 0.8em;
+  vertical-align: middle;
+}
+
+.metadata-full {
+  margin-top: 5px;
+  padding: 8px;
+  background-color: #f9f9f9;
+ border: 1px solid #ddd;
+  border-radius: 4px;
+  position: relative;
+  z-index: 10;
+}
+
+.metadata-editor {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.9em;
+}
+
+.metadata-content {
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
 .music-table {
   margin: 20px;
 }
@@ -11,7 +65,7 @@
 .music-table th,
 .music-table td {
   border: 1px solid #ddd;
-  padding: 12px;
+ padding: 12px;
   text-align: left;
 }
 
@@ -27,7 +81,7 @@
 
 .scene-comment {
   min-width: 300px;
- max-width: 400px;
+  max-width: 400px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -43,7 +97,7 @@
 
 .track-item {
   display: flex;
-  align-items: center;
+ align-items: center;
   justify-content: space-between;
   padding: 8px;
   margin-bottom: 5px;
@@ -99,20 +153,20 @@
   margin-right: 8px;
   padding: 2px 4px;
   border: 1px solid #ccc;
-  border-radius: 3px;
+ border-radius: 3px;
 }
 
 .track-actions {
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-left: 10px;
+ margin-left: 10px;
 }
 
 .track-actions button {
   padding: 4px 8px;
   font-size: 0.8em;
- border: 1px solid #ccc;
+  border: 1px solid #ccc;
   border-radius: 3px;
   cursor: pointer;
   background-color: #f0f0f0;
@@ -127,7 +181,7 @@
  color: white !important;
   padding: 4px 8px !important;
   border-radius: 4px !important;
-  cursor: pointer;
+ cursor: pointer;
 }
 
 .play-btn:hover {
@@ -136,10 +190,10 @@
 
 /* Audio player styles */
 .audio-player {
- display: flex;
+  display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 200px;
+ min-width: 200px;
 }
 
 .timeline-container {
@@ -165,7 +219,7 @@
   background-color: #28a745;
   border-radius: 3px;
   min-width: 0;
-  transition: width 0.1s linear;
+ transition: width 0.1s linear;
 }
 
 .time-info {
@@ -177,7 +231,7 @@
 
 .error-indicator {
   color: #dc3545;
- font-weight: bold;
+  font-weight: bold;
   font-style: italic;
 }
 
@@ -195,7 +249,7 @@
 
 .tag-creation {
   display: flex;
-  margin-top: 10px;
+ margin-top: 10px;
 }
 
 .tag-creation input {
@@ -255,7 +309,7 @@
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 14px;
-  background-color: #007bff;
+ background-color: #007bff;
   color: white;
   cursor: pointer;
 }
@@ -272,13 +326,13 @@
 /* Dialog styles */
 .dialog-overlay {
   position: fixed;
- top: 0;
+  top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  justify-content: center;
+ justify-content: center;
   align-items: center;
   z-index: 1000;
 }
@@ -287,7 +341,7 @@
   background-color: white;
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0.1);
   min-width: 300px;
   text-align: center;
 }
@@ -295,7 +349,7 @@
 .dialog h3 {
   margin-top: 0;
   margin-bottom: 15px;
-  color: #333;
+ color: #333;
 }
 
 .dialog p {
@@ -311,11 +365,11 @@
 }
 
 .dialog-btn {
-  padding: 8px 16px;
+ padding: 8px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
- font-size: 14px;
+  font-size: 14px;
 }
 
 .move-btn {
@@ -324,7 +378,7 @@
 }
 
 .move-btn:hover {
-  background-color: #c82333;
+ background-color: #c82333;
 }
 
 .copy-btn {
@@ -333,7 +387,7 @@
 }
 
 .copy-btn:hover {
-  background-color: #218838;
+ background-color: #218838;
 }
 
 .cancel-btn {
@@ -352,9 +406,9 @@
   transform: translateX(-50%);
   font-size: 12px;
   color: #007bff;
-  background: white;
-  border: 1px solid #007bff;
- border-radius: 50%;
+ background: white;
+ border: 1px solid #007bff;
+  border-radius: 50%;
   width: 14px;
   height: 14px;
   display: flex;
@@ -393,7 +447,7 @@
   border-radius: 3px;
   cursor: pointer;
   background-color: #f0f0f0;
-  min-width: 40px;
+ min-width: 40px;
 }
 
 .marker-btn:hover {

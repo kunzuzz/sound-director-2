@@ -852,164 +852,176 @@ MusicTable.displayName = 'MusicTable';
     return data;
   };
 
-  // State to store CSV data with English translations
-  const [csvData, setCsvData] = useState({});
+  // State to store track metadata from music_tracks.csv
+  const [trackMetadata, setTrackMetadata] = useState({});
 
-  // Function to load CSV data with English translations
-  const loadCSVData = async () => {
+  // Function to load track metadata from music_tracks.csv
+  const loadTrackMetadata = async () => {
     try {
-      const response = await fetch('/api/music/list-2-csv');
+      const response = await fetch('/api/music/music_tracks.csv'); // We'll need to create this API endpoint
       if (response.ok) {
         const csvDataText = await response.text();
-        // Parse CSV data to get scene descriptions and English translations
-        // This is a simplified parser - in a real implementation, you'd want a more robust CSV parser
+        // Parse CSV data to get track descriptions
         const lines = csvDataText.split('\n');
-        // The header row has format: ",Сцена,Музыка,English" (first column is empty)
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        
-        // Find the index of the columns
-        // The first column is empty, second is "Сцена", third is "Музыка", fourth is "English"
-        const sceneColIndex = 1; // "Сцена" is always at index 1
-        const musicColIndex = 2; // "Музыка" is always at index 2
-        const englishColIndex = 3; // "English" is always at index 3
-        
-        if (headers.length < 4) {
-          console.error('CSV headers not found as expected', headers);
-          return {};
-        }
-        
-        const sceneData = {};
-        let currentScene = '';
-        
-        for (let i = 1; i < lines.length; i++) {
-          if (!lines[i].trim()) continue;
+        // The header row has format: "Scene","Music","Description"
+        if (lines[0].includes('Scene') && lines[0].includes('Music') && lines[0].includes('Description')) {
+          const trackData = {};
           
-          // Parse the line by comma, but be careful with quoted content
-          // Using a more robust approach to handle commas within quoted strings
-          let row = [];
-          let currentField = '';
-          let inQuotes = false;
-          let char;
-          
-          for (let j = 0; j < lines[i].length; j++) {
-            char = lines[i][j];
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
             
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-              row.push(currentField);
-              currentField = '';
-            } else {
-              currentField += char;
+            // Parse the line by comma, but be careful with quoted content
+            // Using a more robust approach to handle commas within quoted strings
+            let row = [];
+            let currentField = '';
+            let inQuotes = false;
+            let char;
+            
+            for (let j = 0; j < lines[i].length; j++) {
+              char = lines[i][j];
+              
+              if (char === '"') {
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                row.push(currentField);
+                currentField = '';
+              } else {
+                currentField += char;
+              }
+            }
+            row.push(currentField); // Add the last field
+            
+            // Clean up the fields by removing leading/trailing quotes
+            row = row.map(field => field.trim().replace(/^"|"$/g, ''));
+            
+            if (row.length >= 3) {
+              const scene = row[0];
+              const musicPath = row[1];
+              const description = row[2];
+              
+              // Extract track name from the music path
+              const trackName = musicPath.split('/').pop();
+              
+              // Create a key combining scene and track name to uniquely identify the track
+              const trackKey = `${scene}-${trackName}`;
+              
+              trackData[trackKey] = description;
             }
           }
-          row.push(currentField); // Add the last field
           
-          // Clean up the fields by removing leading/trailing quotes
-          row = row.map(field => field.trim().replace(/^"|"$/g, ''));
+          console.log('Track metadata loaded successfully:', trackData);
+          return trackData;
+        }
+      } else {
+        // If the API endpoint doesn't exist, try loading the file directly
+        // This fallback approach reads the file from the public directory
+        const response2 = await fetch('/music_tracks.csv');
+        if (response2.ok) {
+          const csvDataText = await response2.text();
+          const lines = csvDataText.split('\n');
           
-          if (row[sceneColIndex]) {
-            // This is a scene row
-            currentScene = row[sceneColIndex].trim();
-            // Handle "Начало" = scene 0 rule
-            if (currentScene === 'Начало') {
-              currentScene = 'Scene 0';
+          if (lines[0].includes('Scene') && lines[0].includes('Music') && lines[0].includes('Description')) {
+            const trackData = {};
+            
+            for (let i = 1; i < lines.length; i++) {
+              if (!lines[i].trim()) continue;
+              
+              // Parse the line by comma, but be careful with quoted content
+              let row = [];
+              let currentField = '';
+              let inQuotes = false;
+              let char;
+              
+              for (let j = 0; j < lines[i].length; j++) {
+                char = lines[i][j];
+                
+                if (char === '"') {
+                  inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                  row.push(currentField);
+                  currentField = '';
+                } else {
+                  currentField += char;
+                }
+              }
+              row.push(currentField); // Add the last field
+              
+              // Clean up the fields by removing leading/trailing quotes
+              row = row.map(field => field.trim().replace(/^"|"$/g, ''));
+              
+              if (row.length >= 3) {
+                const scene = row[0];
+                const musicPath = row[1];
+                const description = row[2];
+                
+                // Extract track name from the music path
+                const trackName = musicPath.split('/').pop();
+                
+                // Create a key combining scene and track name to uniquely identify the track
+                const trackKey = `${scene}-${trackName}`;
+                
+                trackData[trackKey] = description;
+              }
             }
-            sceneData[currentScene] = {
-              russian: row[musicColIndex] || '',
-              english: row[englishColIndex] || ''
-            };
-          } else if (row[0] === 'Переход' && currentScene) {
-            // This is a transition row - relates to the scene above
-            sceneData[currentScene] = {
-              russian: row[musicColIndex] || '',
-              english: row[englishColIndex] || ''
-            };
+            
+            console.log('Track metadata loaded successfully from public directory:', trackData);
+            return trackData;
           }
         }
-        
-        console.log('CSV data loaded successfully:', sceneData);
-        return sceneData;
       }
     } catch (error) {
-      console.error('Error loading CSV data:', error);
+      console.error('Error loading track metadata:', error);
       return {};
     }
   };
 
-  // Load CSV data when component mounts
+  // Load track metadata when component mounts
   useEffect(() => {
-    const loadCsv = async () => {
+    const loadMetadata = async () => {
       try {
-        const data = await loadCSVData();
-        setCsvData(data);
-        console.log('CSV data set in state:', data);
+        const data = await loadTrackMetadata();
+        setTrackMetadata(data);
+        console.log('Track metadata set in state:', data);
       } catch (error) {
-        console.error('Error in loadCsv:', error);
+        console.error('Error in loadMetadata:', error);
       }
     };
-    loadCsv();
+    loadMetadata();
   }, []);
 
-   // Function to get scene description from CSV data
-  const getSceneDescription = (sceneName) => {
-    // Check if we have data for this scene directly
-    if (csvData && csvData[sceneName]) {
-      return {
-        russian: csvData[sceneName].russian,
-        english: csvData[sceneName].english
-      };
+  // Function to get track description from metadata
+  const getTrackDescription = (sceneName, trackName) => {
+    // Create a key combining scene and track name to look up the metadata
+    const trackKey = `${sceneName}-${trackName}`;
+    
+    // Check if we have data for this specific track
+    if (trackMetadata && trackMetadata[trackKey]) {
+      return trackMetadata[trackKey];
     }
     
-    // Handle "Начало" = scene 0 rule
-    if (sceneName === 'Scene 0' || sceneName === 'Scene 0 — Dance AFK') {
-      if (csvData && csvData['Scene 0']) {
-        return {
-          russian: csvData['Scene 0'].russian,
-          english: csvData['Scene 0'].english
-        };
-      }
-      if (csvData && csvData['Начало']) {
-        return {
-          russian: csvData['Начало'].russian,
-          english: csvData['Начало'].english
-        };
-      }
-    }
-    
-    // Handle variations of scene names (e.g., "Scene 1" vs "Сцена 1")
-    // Extract scene number from various formats like "Scene 1", "Scene 1 — Demo Pilot", etc.
-    const sceneNumberMatch = sceneName.match(/Scene (\d+)(?: — .*)?/);
-    if (sceneNumberMatch) {
-      const sceneNumber = sceneNumberMatch[1];
-      const csvSceneKey = `Сцена ${sceneNumber}`;
-      
-      if (csvData && csvData[csvSceneKey]) {
-        return {
-          russian: csvData[csvSceneKey].russian,
-          english: csvData[csvSceneKey].english
-        };
-      }
-    }
-    
-    // Handle more complex scene names that contain scene numbers
-    const allSceneNumberMatches = sceneName.match(/Scene (\d+)/g);
-    if (allSceneNumberMatches) {
-      for (const match of allSceneNumberMatches) {
-        const sceneNumber = match.replace('Scene ', '');
-        const csvSceneKey = `Сцена ${sceneNumber}`;
-        
-        if (csvData && csvData[csvSceneKey]) {
-          return {
-            russian: csvData[csvSceneKey].russian,
-            english: csvData[csvSceneKey].english
-          };
+    // Try to find the track by just the track name (in case scene naming is different)
+    if (trackMetadata) {
+      for (const [key, description] of Object.entries(trackMetadata)) {
+        if (key.endsWith(`-${trackName}`)) {
+          return description;
         }
       }
     }
     
-    // If we still can't find a match, try the original scene name
-    return { russian: '', english: '' };
+    return '';
+  };
+
+  // State to manage track descriptions editing and visibility
+ const [trackDescriptions, setTrackDescriptions] = useState({});
+  const [expandedTrackDescriptions, setExpandedTrackDescriptions] = useState({});
+
+  // Function to update track description
+  const updateTrackDescription = (sceneName, trackName, newDescription) => {
+    const trackKey = `${sceneName}-${trackName}`;
+    setTrackDescriptions(prev => ({
+      ...prev,
+      [trackKey]: newDescription
+    }));
   };
 
   // Update duration when loaded
@@ -1251,13 +1263,11 @@ MusicTable.displayName = 'MusicTable';
         <thead>
           <tr>
             <th>Scene</th>
-            <th>Comment</th>
             <th>Music Tracks</th>
           </tr>
         </thead>
         <tbody>
           {scenes.map((scene) => {
-            const description = getSceneDescription(scene.name);
             return (
               <tr 
                 key={scene.name} 
@@ -1265,7 +1275,6 @@ MusicTable.displayName = 'MusicTable';
                 onDrop={(e) => handleDrop(e, scene.name)}
               >
                 <td className="scene-name">{scene.name}</td>
-                <td className="scene-comment">{description.russian}</td>
                 <td className="tracks-container">
                   <div className="tracks-list">
                     {(() => {
@@ -1391,6 +1400,42 @@ MusicTable.displayName = 'MusicTable';
                                   </>
                                 )}
                               </span>
+                              
+                              {/* Track metadata display */}
+                              <div className="track-metadata">
+                                <span 
+                                  className="metadata-preview"
+                                  onClick={() => {
+                                    const trackKey = `${scene.name}-${track.name}`;
+                                    setExpandedTrackDescriptions(prev => ({
+                                      ...prev,
+                                      [trackKey]: !prev[trackKey]
+                                    }));
+                                  }}
+                                >
+                                  {getTrackDescription(scene.name, track.name).substring(0, 60) + (getTrackDescription(scene.name, track.name).length > 60 ? '...' : '')}
+                                  <span className="show-hide-icon">
+                                    {expandedTrackDescriptions[`${scene.name}-${track.name}`] ? '▲' : '▼'}
+                                  </span>
+                                </span>
+                                
+                                {expandedTrackDescriptions[`${scene.name}-${track.name}`] && (
+                                  <div className="metadata-full">
+                                    {mode === 'edit' ? (
+                                      <textarea
+                                        className="metadata-editor"
+                                        value={trackDescriptions[`${scene.name}-${track.name}`] || getTrackDescription(scene.name, track.name)}
+                                        onChange={(e) => updateTrackDescription(scene.name, track.name, e.target.value)}
+                                        rows="4"
+                                      />
+                                    ) : (
+                                      <div className="metadata-content">
+                                        {trackDescriptions[`${scene.name}-${track.name}`] || getTrackDescription(scene.name, track.name)}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                               
                               {/* Waveform visualization for trim mode */}
                               {mode === 'edit' && (
