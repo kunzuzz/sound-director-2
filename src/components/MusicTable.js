@@ -852,24 +852,29 @@ MusicTable.displayName = 'MusicTable';
     return data;
   };
 
+  // State to store CSV data with English translations
+  const [csvData, setCsvData] = useState({});
+
   // Function to load CSV data with English translations
   const loadCSVData = async () => {
     try {
       const response = await fetch('/api/music/list-2-csv');
       if (response.ok) {
-        const csvData = await response.text();
+        const csvDataText = await response.text();
         // Parse CSV data to get scene descriptions and English translations
         // This is a simplified parser - in a real implementation, you'd want a more robust CSV parser
-        const lines = csvData.split('\n');
-        const headers = lines[0].split('","').map(h => h.replace('"', '').replace('"', ''));
+        const lines = csvDataText.split('\n');
+        // The header row has format: ",Сцена,Музыка,English" (first column is empty)
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
         
-        // Find the index of the English column
-        const englishColIndex = headers.indexOf('English');
-        const sceneColIndex = headers.indexOf('Сцена');
-        const musicColIndex = headers.indexOf('Музыка');
+        // Find the index of the columns
+        // The first column is empty, second is "Сцена", third is "Музыка", fourth is "English"
+        const sceneColIndex = 1; // "Сцена" is always at index 1
+        const musicColIndex = 2; // "Музыка" is always at index 2
+        const englishColIndex = 3; // "English" is always at index 3
         
-        if (englishColIndex === -1 || sceneColIndex === -1 || musicColIndex === -1) {
-          console.error('CSV headers not found as expected');
+        if (headers.length < 4) {
+          console.error('CSV headers not found as expected', headers);
           return {};
         }
         
@@ -879,25 +884,46 @@ MusicTable.displayName = 'MusicTable';
         for (let i = 1; i < lines.length; i++) {
           if (!lines[i].trim()) continue;
           
-          // Simple CSV parsing (doesn't handle all edge cases)
-          const values = lines[i].split('","').map(v => v.replace('"', '').replace('"', ''));
+          // Parse the line by comma, but be careful with quoted content
+          // Using a more robust approach to handle commas within quoted strings
+          let row = [];
+          let currentField = '';
+          let inQuotes = false;
+          let char;
           
-          if (values[sceneColIndex]) {
+          for (let j = 0; j < lines[i].length; j++) {
+            char = lines[i][j];
+            
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              row.push(currentField);
+              currentField = '';
+            } else {
+              currentField += char;
+            }
+          }
+          row.push(currentField); // Add the last field
+          
+          // Clean up the fields by removing leading/trailing quotes
+          row = row.map(field => field.trim().replace(/^"|"$/g, ''));
+          
+          if (row[sceneColIndex]) {
             // This is a scene row
-            currentScene = values[sceneColIndex].trim();
+            currentScene = row[sceneColIndex].trim();
             // Handle "Начало" = scene 0 rule
             if (currentScene === 'Начало') {
               currentScene = 'Scene 0';
             }
             sceneData[currentScene] = {
-              russian: values[musicColIndex] || '',
-              english: values[englishColIndex] || ''
+              russian: row[musicColIndex] || '',
+              english: row[englishColIndex] || ''
             };
-          } else if (values[0] === 'Переход' && currentScene) {
+          } else if (row[0] === 'Переход' && currentScene) {
             // This is a transition row - relates to the scene above
             sceneData[currentScene] = {
-              russian: values[musicColIndex] || '',
-              english: values[englishColIndex] || ''
+              russian: row[musicColIndex] || '',
+              english: row[englishColIndex] || ''
             };
           }
         }
@@ -911,10 +937,7 @@ MusicTable.displayName = 'MusicTable';
     }
   };
 
-  // State to store CSV data with English translations
-  const [csvData, setCsvData] = useState({});
-
- // Load CSV data when component mounts
+  // Load CSV data when component mounts
   useEffect(() => {
     const loadCsv = async () => {
       try {
@@ -928,9 +951,9 @@ MusicTable.displayName = 'MusicTable';
     loadCsv();
   }, []);
 
-  // Function to get scene description from CSV data
+   // Function to get scene description from CSV data
   const getSceneDescription = (sceneName) => {
-    // Check if we have data for this scene
+    // Check if we have data for this scene directly
     if (csvData && csvData[sceneName]) {
       return {
         russian: csvData[sceneName].russian,
@@ -938,17 +961,54 @@ MusicTable.displayName = 'MusicTable';
       };
     }
     
-    // Handle variations of scene names (e.g., "Scene 1" vs "Сцена 1")
-    const sceneNumber = sceneName.replace('Scene ', '');
-    const csvSceneKey = `Сцена ${sceneNumber}`;
-    
-    if (csvData && csvData[csvSceneKey]) {
-      return {
-        russian: csvData[csvSceneKey].russian,
-        english: csvData[csvSceneKey].english
-      };
+    // Handle "Начало" = scene 0 rule
+    if (sceneName === 'Scene 0' || sceneName === 'Scene 0 — Dance AFK') {
+      if (csvData && csvData['Scene 0']) {
+        return {
+          russian: csvData['Scene 0'].russian,
+          english: csvData['Scene 0'].english
+        };
+      }
+      if (csvData && csvData['Начало']) {
+        return {
+          russian: csvData['Начало'].russian,
+          english: csvData['Начало'].english
+        };
+      }
     }
     
+    // Handle variations of scene names (e.g., "Scene 1" vs "Сцена 1")
+    // Extract scene number from various formats like "Scene 1", "Scene 1 — Demo Pilot", etc.
+    const sceneNumberMatch = sceneName.match(/Scene (\d+)(?: — .*)?/);
+    if (sceneNumberMatch) {
+      const sceneNumber = sceneNumberMatch[1];
+      const csvSceneKey = `Сцена ${sceneNumber}`;
+      
+      if (csvData && csvData[csvSceneKey]) {
+        return {
+          russian: csvData[csvSceneKey].russian,
+          english: csvData[csvSceneKey].english
+        };
+      }
+    }
+    
+    // Handle more complex scene names that contain scene numbers
+    const allSceneNumberMatches = sceneName.match(/Scene (\d+)/g);
+    if (allSceneNumberMatches) {
+      for (const match of allSceneNumberMatches) {
+        const sceneNumber = match.replace('Scene ', '');
+        const csvSceneKey = `Сцена ${sceneNumber}`;
+        
+        if (csvData && csvData[csvSceneKey]) {
+          return {
+            russian: csvData[csvSceneKey].russian,
+            english: csvData[csvSceneKey].english
+          };
+        }
+      }
+    }
+    
+    // If we still can't find a match, try the original scene name
     return { russian: '', english: '' };
   };
 
